@@ -1,17 +1,23 @@
-export type NodeKind = "entity" | "keyword";
-
-export interface GraphNode {
+export interface PersonNode {
   id: string;
-  label: string;
-  kind: NodeKind;
-  keywords: string[];
-  description?: string;
+  user_id: string;
+  name: string;
+  role?: string;
+  company?: string;
+  type: string;
+  tags: string[];
+  notes?: string;
+  met_at?: string;
+  last_contacted?: string;
+  pos_x: number;
+  pos_y: number;
   color?: string;
-  position: { x: number; y: number };
 }
 
-export interface GraphEdge {
+export interface RelationshipEdge {
   id: string;
-  source: string;
-  target: string;
+  user_id: string;
+  source_id: string;
+  target_id: string;
+  label?: string;
 }

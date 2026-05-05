@@ -13,69 +13,64 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { EntityNode } from "@/components/nodes/EntityNode";
-import { KeywordNode } from "@/components/nodes/KeywordNode";
 import { Sidebar } from "./Sidebar";
 import { AddNodeDialog } from "./AddNodeDialog";
 import { useGraphStore } from "@/lib/store";
+import { useGraphData } from "@/lib/useGraphData";
+import { PersonNode } from "@/lib/types";
 
 // React 19 + React Flow 12 JSX type mismatch — cast to any to unblock build
 const RF = ReactFlow as any;
 
-const nodeTypes = {
-  entity: EntityNode,
-  keyword: KeywordNode,
-};
+const nodeTypes = { entity: EntityNode };
 
 function GraphInner() {
-  const {
-    nodes: graphNodes,
-    edges: graphEdges,
-    selectedNodeId,
-    setSelectedNode,
-    updateNodePosition,
-  } = useGraphStore();
+  const { nodes, edges, selectedNodeId, setSelectedNode, loading } =
+    useGraphStore();
+  const { handlePositionChange, addNode } = useGraphData();
 
   const rfNodes = useMemo(
     () =>
-      graphNodes.map((n) => ({
+      nodes.map((n: PersonNode) => ({
         id: n.id,
-        type: n.kind,
-        position: n.position,
+        type: "entity",
+        position: { x: n.pos_x, y: n.pos_y },
         selected: n.id === selectedNodeId,
         data: {
-          label: n.label,
+          name: n.name,
           color: n.color,
-          keywords: n.keywords,
-          description: n.description,
+          role: n.role,
+          company: n.company,
+          type: n.type,
         },
       })),
-    [graphNodes, selectedNodeId]
+    [nodes, selectedNodeId]
   );
 
   const rfEdges = useMemo(
     () =>
-      graphEdges.map((e) => ({
+      edges.map((e) => ({
         id: e.id,
-        source: e.source,
-        target: e.target,
-        style: {
-          stroke: "rgba(255,255,255,0.15)",
-          strokeWidth: 1.5,
-        },
-        animated: false,
+        source: e.source_id,
+        target: e.target_id,
+        label: e.label,
+        style: { stroke: "rgba(255,255,255,0.15)", strokeWidth: 1.5 },
+        labelStyle: { fill: "rgba(255,255,255,0.45)", fontSize: 10 },
+        labelBgStyle: { fill: "rgba(0,0,0,0.5)", borderRadius: 4 },
+        labelBgPadding: [4, 2] as [number, number],
       })),
-    [graphEdges]
+    [edges]
   );
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
       changes.forEach((change) => {
         if (change.type === "position" && change.position) {
-          updateNodePosition(change.id, change.position.x, change.position.y);
+          handlePositionChange(change.id, change.position.x, change.position.y);
         }
       });
     },
-    [updateNodePosition]
+    [handlePositionChange]
   );
 
   const onPaneClick = useCallback(() => {
@@ -84,6 +79,20 @@ function GraphInner() {
 
   return (
     <div className="relative w-full h-full">
+      {loading && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="flex gap-1.5">
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="w-1.5 h-1.5 rounded-full bg-white/60 animate-bounce"
+                style={{ animationDelay: `${i * 120}ms` }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       <RF
         nodes={rfNodes}
         edges={rfEdges}
@@ -109,16 +118,15 @@ function GraphInner() {
         />
         <MiniMap
           className="!bg-black/40 !backdrop-blur-xl !border-white/10 !rounded-xl !shadow-xl"
-          nodeColor={(node: any) => {
-            if (node.type === "keyword") return "rgba(255,255,255,0.15)";
-            return (node.data as { color?: string }).color ?? "#6366f1";
-          }}
+          nodeColor={(node: any) =>
+            (node.data as { color?: string }).color ?? "#6366f1"
+          }
           maskColor="rgba(0,0,0,0.4)"
         />
       </RF>
 
       <Sidebar />
-      <AddNodeDialog />
+      <AddNodeDialog addNode={addNode} />
     </div>
   );
 }
