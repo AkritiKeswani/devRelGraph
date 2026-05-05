@@ -6,35 +6,79 @@ import { useSupabaseClient } from "./supabase";
 import { useGraphStore } from "./store";
 import { PersonNode, RelationshipEdge } from "./types";
 
+const LS_NODES = "pplgraph_nodes";
+const LS_EDGES = "pplgraph_edges";
+
+// DB stores color as integer; UI uses hex strings
+function colorToInt(hex: string | undefined): number | undefined {
+  if (!hex) return undefined;
+  return parseInt(hex.replace("#", ""), 16);
+}
+
+function intToColor(n: number | undefined | null): string | undefined {
+  if (n == null) return undefined;
+  return "#" + n.toString(16).padStart(6, "0");
+}
+
+function nodeFromDb(row: Record<string, unknown>): PersonNode {
+  return { ...row, color: intToColor(row.color as number | undefined) } as PersonNode;
+}
+
+function nodeToDb(data: Partial<PersonNode>): Record<string, unknown> {
+  const { color, ...rest } = data;
+  return { ...rest, ...(color !== undefined ? { color: colorToInt(color) } : {}) };
+}
+
 export function useGraphData() {
   const supabase = useSupabaseClient();
   const supabaseRef = useRef(supabase);
   supabaseRef.current = supabase;
 
-  const { userId } = useAuth();
-  const { setNodes, setEdges, setLoading, upsertNode, updateNodePosition } =
+  const { userId, isLoaded } = useAuth();
+  const { nodes, setNodes, setEdges, setLoading, upsertNode, updateNodePosition } =
     useGraphStore();
 
+  // Load data once auth state is known
   useEffect(() => {
-    if (!userId) return;
-    setLoading(true);
-    Promise.all([
-      supabaseRef.current.from("nodes").select("*").eq("user_id", userId),
-      supabaseRef.current.from("edges").select("*").eq("user_id", userId),
-    ]).then(([{ data: nodes }, { data: edges }]) => {
-      if (nodes) setNodes(nodes as PersonNode[]);
-      if (edges) setEdges(edges as RelationshipEdge[]);
-      setLoading(false);
-    });
-  }, [userId, setNodes, setEdges, setLoading]);
+    if (!isLoaded) return;
 
-  const positionTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>(
-    {}
-  );
+    if (userId) {
+      setLoading(true);
+      Promise.all([
+        supabaseRef.current.from("nodes").select("*").eq("user_id", userId),
+        supabaseRef.current.from("edges").select("*").eq("user_id", userId),
+      ]).then(([{ data: n, error: ne }, { data: e, error: ee }]) => {
+        if (ne) console.error("nodes fetch:", ne.message, ne.code);
+        if (ee) console.error("edges fetch:", ee.message, ee.code);
+        if (n) setNodes(n.map(nodeFromDb));
+        if (e) setEdges(e as RelationshipEdge[]);
+        setLoading(false);
+      });
+    } else {
+      try {
+        const n = localStorage.getItem(LS_NODES);
+        const e = localStorage.getItem(LS_EDGES);
+        if (n) setNodes(JSON.parse(n));
+        if (e) setEdges(JSON.parse(e));
+      } catch {}
+    }
+  }, [isLoaded, userId, setNodes, setEdges, setLoading]);
+
+  // Persist to localStorage when logged out
+  useEffect(() => {
+    if (!isLoaded || userId) return;
+    try {
+      localStorage.setItem(LS_NODES, JSON.stringify(nodes));
+    } catch {}
+  }, [nodes, isLoaded, userId]);
+
+  // Debounced position save
+  const positionTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const handlePositionChange = useCallback(
     (nodeId: string, x: number, y: number) => {
       updateNodePosition(nodeId, x, y);
+      if (!userId) return; // localStorage sync handled by effect above
       clearTimeout(positionTimers.current[nodeId]);
       positionTimers.current[nodeId] = setTimeout(() => {
         supabaseRef.current
@@ -43,22 +87,46 @@ export function useGraphData() {
           .eq("id", nodeId);
       }, 600);
     },
-    [updateNodePosition]
+    [userId, updateNodePosition]
   );
 
   const addNode = useCallback(
     async (data: Omit<PersonNode, "id" | "user_id">) => {
-      if (!userId) return null;
+      if (!userId) {
+        const node: PersonNode = { ...data, id: crypto.randomUUID(), user_id: "local" };
+        upsertNode(node);
+        return node;
+      }
       const { data: node, error } = await supabaseRef.current
         .from("nodes")
-        .insert({ ...data, user_id: userId })
+        .insert({ ...nodeToDb(data), user_id: userId })
         .select()
         .single();
-      if (node && !error) upsertNode(node as PersonNode);
-      return error ? null : (node as PersonNode);
+      if (error) console.error("addNode:", error.message, error.code, error.details, error.hint);
+      if (node && !error) upsertNode(nodeFromDb(node));
+      return error ? null : nodeFromDb(node);
     },
     [userId, upsertNode]
   );
 
-  return { handlePositionChange, addNode };
+  const updateNode = useCallback(
+    async (id: string, data: Partial<Omit<PersonNode, "id" | "user_id">>) => {
+      if (!userId) {
+        const existing = useGraphStore.getState().nodes.find((n) => n.id === id);
+        if (existing) upsertNode({ ...existing, ...data });
+        return;
+      }
+      const { data: node, error } = await supabaseRef.current
+        .from("nodes")
+        .update(nodeToDb(data))
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) console.error("updateNode:", error.message, error.code, error.details);
+      if (node && !error) upsertNode(nodeFromDb(node));
+    },
+    [userId, upsertNode]
+  );
+
+  return { handlePositionChange, addNode, updateNode };
 }

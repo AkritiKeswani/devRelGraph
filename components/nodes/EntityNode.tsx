@@ -2,25 +2,20 @@
 
 import { memo } from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
-import { useGraphStore } from "@/lib/store";
 
 type NodeData = {
   name: string;
   color?: string;
   role?: string;
   company?: string;
-  type: string;
 };
 
-export const EntityNode = memo(({ id, data, selected }: NodeProps) => {
-  const { setSelectedNode } = useGraphStore();
+export const EntityNode = memo(({ data, selected }: NodeProps) => {
   const d = data as NodeData;
-
   const subtitle = [d.role, d.company].filter(Boolean).join(" @ ");
 
   return (
     <div
-      onClick={() => setSelectedNode(id)}
       className="cursor-pointer transition-all duration-200"
       style={{
         filter: selected
@@ -28,26 +23,10 @@ export const EntityNode = memo(({ id, data, selected }: NodeProps) => {
           : undefined,
       }}
     >
-      <Handle
-        type="source"
-        position={Position.Top}
-        className="!bg-white/30 !border-white/20 !w-2 !h-2"
-      />
-      <Handle
-        type="target"
-        position={Position.Bottom}
-        className="!bg-white/30 !border-white/20 !w-2 !h-2"
-      />
-      <Handle
-        type="source"
-        position={Position.Left}
-        className="!bg-white/30 !border-white/20 !w-2 !h-2"
-      />
-      <Handle
-        type="target"
-        position={Position.Right}
-        className="!bg-white/30 !border-white/20 !w-2 !h-2"
-      />
+      <Handle type="source" position={Position.Top} className="!bg-white/30 !border-white/20 !w-2 !h-2" />
+      <Handle type="target" position={Position.Bottom} className="!bg-white/30 !border-white/20 !w-2 !h-2" />
+      <Handle type="source" position={Position.Left} className="!bg-white/30 !border-white/20 !w-2 !h-2" />
+      <Handle type="target" position={Position.Right} className="!bg-white/30 !border-white/20 !w-2 !h-2" />
 
       <div
         className={`
@@ -62,13 +41,9 @@ export const EntityNode = memo(({ id, data, selected }: NodeProps) => {
             : `0 4px 20px ${d.color ?? "#6366f1"}40`,
         }}
       >
-        <div className="text-white font-semibold text-sm tracking-wide">
-          {d.name}
-        </div>
+        <div className="text-white font-semibold text-sm tracking-wide">{d.name}</div>
         {subtitle && (
-          <div className="text-white/60 text-xs mt-0.5 truncate max-w-[140px]">
-            {subtitle}
-          </div>
+          <div className="text-white/60 text-xs mt-0.5 truncate max-w-[140px]">{subtitle}</div>
         )}
       </div>
     </div>

@@ -5,12 +5,14 @@ interface GraphStore {
   nodes: PersonNode[];
   edges: RelationshipEdge[];
   selectedNodeId: string | null;
+  panelOpen: boolean;
   loading: boolean;
 
   setNodes: (nodes: PersonNode[]) => void;
   setEdges: (edges: RelationshipEdge[]) => void;
   setLoading: (v: boolean) => void;
   setSelectedNode: (id: string | null) => void;
+  setPanelOpen: (v: boolean) => void;
   upsertNode: (node: PersonNode) => void;
   updateNodePosition: (nodeId: string, x: number, y: number) => void;
 }
@@ -19,12 +21,14 @@ export const useGraphStore = create<GraphStore>((set) => ({
   nodes: [],
   edges: [],
   selectedNodeId: null,
+  panelOpen: false,
   loading: false,
 
   setNodes: (nodes) => set({ nodes }),
   setEdges: (edges) => set({ edges }),
   setLoading: (loading) => set({ loading }),
   setSelectedNode: (id) => set({ selectedNodeId: id }),
+  setPanelOpen: (panelOpen) => set({ panelOpen }),
 
   upsertNode: (node) =>
     set((state) => {

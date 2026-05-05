@@ -12,9 +12,10 @@ import {
   NodeChange,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import { useAuth } from "@clerk/nextjs";
+import { Plus } from "lucide-react";
 import { EntityNode } from "@/components/nodes/EntityNode";
-import { Sidebar } from "./Sidebar";
-import { AddNodeDialog } from "./AddNodeDialog";
+import { NodePanel } from "./NodePanel";
 import { useGraphStore } from "@/lib/store";
 import { useGraphData } from "@/lib/useGraphData";
 import { PersonNode } from "@/lib/types";
@@ -25,9 +26,10 @@ const RF = ReactFlow as any;
 const nodeTypes = { entity: EntityNode };
 
 function GraphInner() {
-  const { nodes, edges, selectedNodeId, setSelectedNode, loading } =
+  const { userId } = useAuth();
+  const { nodes, edges, selectedNodeId, loading, setSelectedNode, setPanelOpen } =
     useGraphStore();
-  const { handlePositionChange, addNode } = useGraphData();
+  const { handlePositionChange, addNode, updateNode } = useGraphData();
 
   const rfNodes = useMemo(
     () =>
@@ -73,12 +75,28 @@ function GraphInner() {
     [handlePositionChange]
   );
 
+  const onNodeClick = useCallback(
+    (_: unknown, node: { id: string }) => {
+      setSelectedNode(node.id);
+    },
+    [setSelectedNode]
+  );
+
   const onPaneClick = useCallback(() => {
     setSelectedNode(null);
-  }, [setSelectedNode]);
+    setPanelOpen(false);
+  }, [setSelectedNode, setPanelOpen]);
 
   return (
     <div className="relative w-full h-full">
+      {/* Logged-out banner */}
+      {!userId && (
+        <div className="absolute top-0 left-0 right-0 z-30 bg-indigo-600/20 border-b border-indigo-500/20 text-center py-1.5 text-xs text-indigo-300 pointer-events-none">
+          Sign in to save your graph
+        </div>
+      )}
+
+      {/* Loading overlay */}
       {loading && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="flex gap-1.5">
@@ -98,6 +116,7 @@ function GraphInner() {
         edges={rfEdges}
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
+        onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
         fitView
         fitViewOptions={{ padding: 0.3 }}
@@ -125,8 +144,26 @@ function GraphInner() {
         />
       </RF>
 
-      <Sidebar />
-      <AddNodeDialog addNode={addNode} />
+      {/* Add node button */}
+      <button
+        onClick={() => {
+          setSelectedNode(null);
+          setPanelOpen(true);
+        }}
+        className="
+          absolute bottom-6 left-1/2 -translate-x-1/2 z-10
+          flex items-center gap-2 px-4 py-2 rounded-full
+          bg-black/50 backdrop-blur-xl border border-white/15
+          text-white/60 hover:text-white hover:border-white/30
+          text-sm font-medium transition-all duration-200
+          shadow-xl hover:shadow-2xl
+        "
+      >
+        <Plus size={14} />
+        Add node
+      </button>
+
+      <NodePanel addNode={addNode} updateNode={updateNode} />
     </div>
   );
 }

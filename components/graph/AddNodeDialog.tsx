@@ -10,7 +10,7 @@ const COLORS = [
   "#f59e0b", "#3b82f6", "#ef4444", "#14b8a6",
 ];
 
-const NODE_TYPES = ["person", "company", "investor", "advisor", "other"];
+const NODE_TYPES = ["engineer", "investor", "founder", "product manager", "marketing", "customer success", "documentation"];
 
 interface Props {
   addNode: (data: Omit<PersonNode, "id" | "user_id">) => Promise<PersonNode | null>;
@@ -21,7 +21,7 @@ export function AddNodeDialog({ addNode }: Props) {
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
   const [company, setCompany] = useState("");
-  const [type, setType] = useState("person");
+  const [type, setType] = useState("engineer");
   const [color, setColor] = useState(COLORS[0]);
   const [saving, setSaving] = useState(false);
 
@@ -29,7 +29,7 @@ export function AddNodeDialog({ addNode }: Props) {
     setName("");
     setRole("");
     setCompany("");
-    setType("person");
+    setType("engineer");
     setColor(COLORS[0]);
   };
 

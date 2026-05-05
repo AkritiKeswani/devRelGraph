@@ -6,6 +6,14 @@ export function useSupabaseClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_KEY!,
-    { async accessToken() { return session?.getToken() ?? null; } }
+    {
+      async accessToken() {
+        try {
+          return await session?.getToken({ template: "supabase" }) ?? null;
+        } catch {
+          return null;
+        }
+      },
+    }
   );
 }
