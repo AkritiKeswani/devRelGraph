@@ -9,7 +9,7 @@ export function useSupabaseClient() {
     {
       async accessToken() {
         try {
-          return await session?.getToken({ template: "supabase" }) ?? null;
+          return await session?.getToken() ?? null;
         } catch {
           return null;
         }

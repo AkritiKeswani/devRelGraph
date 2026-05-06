@@ -10,6 +10,8 @@ import {
   Controls,
   MiniMap,
   NodeChange,
+  EdgeChange,
+  Connection,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useAuth } from "@clerk/nextjs";
@@ -29,7 +31,7 @@ function GraphInner() {
   const { userId } = useAuth();
   const { nodes, edges, selectedNodeId, loading, setSelectedNode, setPanelOpen } =
     useGraphStore();
-  const { handlePositionChange, addNode, updateNode } = useGraphData();
+  const { handlePositionChange, addNode, updateNode, addEdge, deleteEdge } = useGraphData();
 
   const rfNodes = useMemo(
     () =>
@@ -82,6 +84,22 @@ function GraphInner() {
     [setSelectedNode]
   );
 
+  const onConnect = useCallback(
+    (c: Connection) => {
+      if (c.source && c.target) addEdge({ source_id: c.source, target_id: c.target });
+    },
+    [addEdge]
+  );
+
+  const onEdgesChange = useCallback(
+    (changes: EdgeChange[]) => {
+      changes.forEach((change) => {
+        if (change.type === "remove") deleteEdge(change.id);
+      });
+    },
+    [deleteEdge]
+  );
+
   const onPaneClick = useCallback(() => {
     setSelectedNode(null);
     setPanelOpen(false);
@@ -116,6 +134,8 @@ function GraphInner() {
         edges={rfEdges}
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
         fitView

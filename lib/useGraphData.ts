@@ -35,8 +35,17 @@ export function useGraphData() {
   supabaseRef.current = supabase;
 
   const { userId, isLoaded } = useAuth();
-  const { nodes, setNodes, setEdges, setLoading, upsertNode, updateNodePosition } =
-    useGraphStore();
+  const {
+    nodes,
+    edges,
+    setNodes,
+    setEdges,
+    setLoading,
+    upsertNode,
+    updateNodePosition,
+    upsertEdge,
+    removeEdge,
+  } = useGraphStore();
 
   // Load data once auth state is known
   useEffect(() => {
@@ -69,8 +78,9 @@ export function useGraphData() {
     if (!isLoaded || userId) return;
     try {
       localStorage.setItem(LS_NODES, JSON.stringify(nodes));
+      localStorage.setItem(LS_EDGES, JSON.stringify(edges));
     } catch {}
-  }, [nodes, isLoaded, userId]);
+  }, [nodes, edges, isLoaded, userId]);
 
   // Debounced position save
   const positionTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -128,5 +138,35 @@ export function useGraphData() {
     [userId, upsertNode]
   );
 
-  return { handlePositionChange, addNode, updateNode };
+  const addEdge = useCallback(
+    async (data: { source_id: string; target_id: string; label?: string }) => {
+      if (data.source_id === data.target_id) return null;
+      if (!userId) {
+        const edge: RelationshipEdge = { ...data, id: crypto.randomUUID(), user_id: "local" };
+        upsertEdge(edge);
+        return edge;
+      }
+      const { data: edge, error } = await supabaseRef.current
+        .from("edges")
+        .insert({ ...data, user_id: userId })
+        .select()
+        .single();
+      if (error) console.error("addEdge:", error.message, error.code, error.details, error.hint);
+      if (edge && !error) upsertEdge(edge as RelationshipEdge);
+      return error ? null : (edge as RelationshipEdge);
+    },
+    [userId, upsertEdge]
+  );
+
+  const deleteEdge = useCallback(
+    async (id: string) => {
+      removeEdge(id);
+      if (!userId) return;
+      const { error } = await supabaseRef.current.from("edges").delete().eq("id", id);
+      if (error) console.error("deleteEdge:", error.message, error.code);
+    },
+    [userId, removeEdge]
+  );
+
+  return { handlePositionChange, addNode, updateNode, addEdge, deleteEdge };
 }
