@@ -43,6 +43,7 @@ export function useGraphData() {
     setLoading,
     upsertNode,
     updateNodePosition,
+    removeNode,
     upsertEdge,
     removeEdge,
   } = useGraphStore();
@@ -138,6 +139,16 @@ export function useGraphData() {
     [userId, upsertNode]
   );
 
+  const deleteNode = useCallback(
+    async (id: string) => {
+      removeNode(id);
+      if (!userId) return;
+      const { error } = await supabaseRef.current.from("nodes").delete().eq("id", id);
+      if (error) console.error("deleteNode:", error.message, error.code);
+    },
+    [userId, removeNode]
+  );
+
   const addEdge = useCallback(
     async (data: { source_id: string; target_id: string; label?: string }) => {
       if (data.source_id === data.target_id) return null;
@@ -168,5 +179,5 @@ export function useGraphData() {
     [userId, removeEdge]
   );
 
-  return { handlePositionChange, addNode, updateNode, addEdge, deleteEdge };
+  return { handlePositionChange, addNode, updateNode, deleteNode, addEdge, deleteEdge };
 }

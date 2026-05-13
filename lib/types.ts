@@ -2,16 +2,20 @@ export interface PersonNode {
   id: string;
   user_id: string;
   name: string;
-  role?: string;
+  linkedin_url?: string;
   company?: string;
-  type: string;
-  tags: string[];
+  person?: string;
+  activity?: string;
   notes?: string;
-  met_at?: string;
-  last_contacted?: string;
+  company_url?: string;
+  role?: string;
+  twitter_url?: string;
+  last_interacted?: string;
   pos_x: number;
   pos_y: number;
   color?: string;
+  width?: number;
+  height?: number;
 }
 
 export interface RelationshipEdge {

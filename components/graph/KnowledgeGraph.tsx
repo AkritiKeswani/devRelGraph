@@ -29,9 +29,9 @@ const nodeTypes = { entity: EntityNode };
 
 function GraphInner() {
   const { userId } = useAuth();
-  const { nodes, edges, selectedNodeId, loading, setSelectedNode, setPanelOpen } =
+  const { nodes, edges, selectedNodeId, loading, setSelectedNode, setPanelOpen, updateNodeDimensions } =
     useGraphStore();
-  const { handlePositionChange, addNode, updateNode, addEdge, deleteEdge } = useGraphData();
+  const { handlePositionChange, addNode, updateNode, deleteNode, addEdge, deleteEdge } = useGraphData();
 
   const rfNodes = useMemo(
     () =>
@@ -40,12 +40,12 @@ function GraphInner() {
         type: "entity",
         position: { x: n.pos_x, y: n.pos_y },
         selected: n.id === selectedNodeId,
+        style: { width: n.width ?? 160, height: n.height ?? 90 },
         data: {
           name: n.name,
           color: n.color,
           role: n.role,
           company: n.company,
-          type: n.type,
         },
       })),
     [nodes, selectedNodeId]
@@ -71,10 +71,14 @@ function GraphInner() {
       changes.forEach((change) => {
         if (change.type === "position" && change.position) {
           handlePositionChange(change.id, change.position.x, change.position.y);
+        } else if (change.type === "dimensions" && change.dimensions && change.resizing) {
+          updateNodeDimensions(change.id, change.dimensions.width, change.dimensions.height);
+        } else if (change.type === "remove") {
+          deleteNode(change.id);
         }
       });
     },
-    [handlePositionChange]
+    [handlePositionChange, updateNodeDimensions, deleteNode]
   );
 
   const onNodeClick = useCallback(
@@ -82,6 +86,14 @@ function GraphInner() {
       setSelectedNode(node.id);
     },
     [setSelectedNode]
+  );
+
+  const onNodeDoubleClick = useCallback(
+    (_: unknown, node: { id: string }) => {
+      setSelectedNode(node.id);
+      setPanelOpen(true);
+    },
+    [setSelectedNode, setPanelOpen]
   );
 
   const onConnect = useCallback(
@@ -137,6 +149,7 @@ function GraphInner() {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onNodeClick={onNodeClick}
+        onNodeDoubleClick={onNodeDoubleClick}
         onPaneClick={onPaneClick}
         fitView
         fitViewOptions={{ padding: 0.3 }}
@@ -183,7 +196,13 @@ function GraphInner() {
         Add node
       </button>
 
-      <NodePanel addNode={addNode} updateNode={updateNode} />
+      <NodePanel
+        addNode={addNode}
+        updateNode={updateNode}
+        deleteNode={deleteNode}
+        addEdge={addEdge}
+        deleteEdge={deleteEdge}
+      />
     </div>
   );
 }

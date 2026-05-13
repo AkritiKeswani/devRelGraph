@@ -1,19 +1,34 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, User, Building2, Tag, FileText, Calendar, Clock } from "lucide-react";
+import {
+  X,
+  User,
+  Building2,
+  AtSign,
+  Link2,
+  Calendar,
+  FileText,
+  UserCheck,
+  Sparkles,
+  Trash2,
+  Plus,
+} from "lucide-react";
 import { useGraphStore } from "@/lib/store";
-import { PersonNode } from "@/lib/types";
+import { PersonNode, RelationshipEdge } from "@/lib/types";
 
 const COLORS = ["#6366f1", "#ec4899", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6"];
 
 interface Props {
   addNode: (data: Omit<PersonNode, "id" | "user_id">) => Promise<PersonNode | null>;
   updateNode: (id: string, data: Partial<Omit<PersonNode, "id" | "user_id">>) => Promise<void>;
+  deleteNode: (id: string) => Promise<void>;
+  addEdge: (data: { source_id: string; target_id: string; label?: string }) => Promise<RelationshipEdge | null>;
+  deleteEdge: (id: string) => Promise<void>;
 }
 
-export function NodePanel({ addNode, updateNode }: Props) {
-  const { nodes, selectedNodeId, panelOpen, setSelectedNode, setPanelOpen } =
+export function NodePanel({ addNode, updateNode, deleteNode, addEdge, deleteEdge }: Props) {
+  const { nodes, edges, selectedNodeId, panelOpen, setSelectedNode, setPanelOpen } =
     useGraphStore();
 
   const editNode = selectedNodeId ? nodes.find((n) => n.id === selectedNodeId) : null;
@@ -23,36 +38,48 @@ export function NodePanel({ addNode, updateNode }: Props) {
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
   const [company, setCompany] = useState("");
-  const [type, setType] = useState("person");
-  const [tagsInput, setTagsInput] = useState("");
+  const [companyUrl, setCompanyUrl] = useState("");
+  const [linkedinUrl, setLinkedinUrl] = useState("");
+  const [twitterUrl, setTwitterUrl] = useState("");
+  const [person, setPerson] = useState("");
+  const [activity, setActivity] = useState("");
+  const [lastInteracted, setLastInteracted] = useState("");
   const [notes, setNotes] = useState("");
-  const [metAt, setMetAt] = useState("");
-  const [lastContacted, setLastContacted] = useState("");
   const [color, setColor] = useState(COLORS[0]);
   const [saving, setSaving] = useState(false);
+
+  // Connect-to form state
+  const [connectTargetId, setConnectTargetId] = useState("");
+  const [connectLabel, setConnectLabel] = useState("");
 
   useEffect(() => {
     if (editNode) {
       setName(editNode.name);
       setRole(editNode.role ?? "");
       setCompany(editNode.company ?? "");
-      setType(editNode.type);
-      setTagsInput(editNode.tags.join(", "));
+      setCompanyUrl(editNode.company_url ?? "");
+      setLinkedinUrl(editNode.linkedin_url ?? "");
+      setTwitterUrl(editNode.twitter_url ?? "");
+      setPerson(editNode.person ?? "");
+      setActivity(editNode.activity ?? "");
+      setLastInteracted(editNode.last_interacted?.slice(0, 10) ?? "");
       setNotes(editNode.notes ?? "");
-      setMetAt(editNode.met_at?.slice(0, 10) ?? "");
-      setLastContacted(editNode.last_contacted?.slice(0, 10) ?? "");
       setColor(editNode.color ?? COLORS[0]);
     } else {
       setName("");
       setRole("");
       setCompany("");
-      setType("person");
-      setTagsInput("");
+      setCompanyUrl("");
+      setLinkedinUrl("");
+      setTwitterUrl("");
+      setPerson("");
+      setActivity("");
+      setLastInteracted("");
       setNotes("");
-      setMetAt("");
-      setLastContacted("");
       setColor(COLORS[Math.floor(Math.random() * COLORS.length)]);
     }
+    setConnectTargetId("");
+    setConnectLabel("");
   }, [editNode, selectedNodeId]);
 
   const close = () => {
@@ -68,14 +95,13 @@ export function NodePanel({ addNode, updateNode }: Props) {
       name: name.trim(),
       role: role.trim() || undefined,
       company: company.trim() || undefined,
-      type,
-      tags: tagsInput
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean),
+      company_url: companyUrl.trim() || undefined,
+      linkedin_url: linkedinUrl.trim() || undefined,
+      twitter_url: twitterUrl.trim() || undefined,
+      person: person.trim() || undefined,
+      activity: activity.trim() || undefined,
+      last_interacted: lastInteracted || undefined,
       notes: notes.trim() || undefined,
-      met_at: metAt || undefined,
-      last_contacted: lastContacted || undefined,
       color,
       pos_x: editNode?.pos_x ?? 250 + Math.random() * 400,
       pos_y: editNode?.pos_y ?? 200 + Math.random() * 300,
@@ -91,8 +117,51 @@ export function NodePanel({ addNode, updateNode }: Props) {
     close();
   };
 
+  const handleDelete = async () => {
+    if (!selectedNodeId || saving) return;
+    if (!confirm(`Delete "${editNode?.name}" and all its connections?`)) return;
+    setSaving(true);
+    await deleteNode(selectedNodeId);
+    setSaving(false);
+    close();
+  };
+
+  const handleConnect = async () => {
+    if (!selectedNodeId || !connectTargetId) return;
+    await addEdge({
+      source_id: selectedNodeId,
+      target_id: connectTargetId,
+      label: connectLabel.trim() || undefined,
+    });
+    setConnectTargetId("");
+    setConnectLabel("");
+  };
+
+  // Edges touching the currently-selected node
+  const connections = selectedNodeId
+    ? edges
+        .filter((e) => e.source_id === selectedNodeId || e.target_id === selectedNodeId)
+        .map((e) => {
+          const otherId = e.source_id === selectedNodeId ? e.target_id : e.source_id;
+          const other = nodes.find((n) => n.id === otherId);
+          return { edge: e, other };
+        })
+        .filter((c) => c.other)
+    : [];
+
+  const otherNodes = selectedNodeId
+    ? nodes.filter(
+        (n) =>
+          n.id !== selectedNodeId &&
+          !connections.some((c) => c.other?.id === n.id)
+      )
+    : [];
+
   const inputCls =
     "w-full h-9 px-3 text-sm rounded-lg bg-white/5 border border-white/15 text-white placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-white/30 focus:border-white/30 transition-colors";
+
+  const labelCls =
+    "text-white/40 text-[10px] uppercase tracking-wider font-medium mb-1.5 flex items-center gap-1";
 
   return (
     <>
@@ -122,11 +191,8 @@ export function NodePanel({ addNode, updateNode }: Props) {
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4">
-          {/* Name */}
           <div>
-            <label className="text-white/40 text-[10px] uppercase tracking-wider font-medium block mb-1.5">
-              Name *
-            </label>
+            <label className={labelCls}>Name *</label>
             <input
               autoFocus
               value={name}
@@ -140,10 +206,9 @@ export function NodePanel({ addNode, updateNode }: Props) {
             />
           </div>
 
-          {/* Role + Company */}
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-white/40 text-[10px] uppercase tracking-wider font-medium mb-1.5 flex items-center gap-1">
+              <label className={labelCls}>
                 <User size={9} /> Role
               </label>
               <input
@@ -154,7 +219,7 @@ export function NodePanel({ addNode, updateNode }: Props) {
               />
             </div>
             <div>
-              <label className="text-white/40 text-[10px] uppercase tracking-wider font-medium mb-1.5 flex items-center gap-1">
+              <label className={labelCls}>
                 <Building2 size={9} /> Company
               </label>
               <input
@@ -166,87 +231,94 @@ export function NodePanel({ addNode, updateNode }: Props) {
             </div>
           </div>
 
-          {/* Type */}
           <div>
-            <label className="text-white/40 text-[10px] uppercase tracking-wider font-medium block mb-1.5">
-              Type
+            <label className={labelCls}>
+              <Link2 size={9} /> Company URL
             </label>
-            <div className="flex gap-2">
-              {["person", "company"].map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setType(t)}
-                  className={`flex-1 h-9 rounded-lg text-sm font-medium transition-colors ${
-                    type === t
-                      ? "bg-indigo-500/30 border border-indigo-500/60 text-indigo-300"
-                      : "bg-white/5 border border-white/10 text-white/40 hover:text-white/60"
-                  }`}
-                >
-                  {t}
-                </button>
-              ))}
+            <input
+              value={companyUrl}
+              onChange={(e) => setCompanyUrl(e.target.value)}
+              placeholder="https://stripe.com"
+              className={inputCls}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className={labelCls}>
+                <AtSign size={9} /> LinkedIn
+              </label>
+              <input
+                value={linkedinUrl}
+                onChange={(e) => setLinkedinUrl(e.target.value)}
+                placeholder="linkedin.com/in/…"
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>
+                <AtSign size={9} /> Twitter / X
+              </label>
+              <input
+                value={twitterUrl}
+                onChange={(e) => setTwitterUrl(e.target.value)}
+                placeholder="x.com/…"
+                className={inputCls}
+              />
             </div>
           </div>
 
-          {/* Tags */}
           <div>
-            <label className="text-white/40 text-[10px] uppercase tracking-wider font-medium mb-1.5 flex items-center gap-1">
-              <Tag size={9} /> Tags
+            <label className={labelCls}>
+              <UserCheck size={9} /> Person (relationship owner)
             </label>
             <input
-              value={tagsInput}
-              onChange={(e) => setTagsInput(e.target.value)}
-              placeholder="YC, fintech, B2B"
+              value={person}
+              onChange={(e) => setPerson(e.target.value)}
+              placeholder="Akriti"
               className={inputCls}
             />
-            <p className="text-white/20 text-[10px] mt-1">Comma-separated</p>
           </div>
 
-          {/* Notes */}
           <div>
-            <label className="text-white/40 text-[10px] uppercase tracking-wider font-medium mb-1.5 flex items-center gap-1">
+            <label className={labelCls}>
+              <Sparkles size={9} /> Activity (where / how met)
+            </label>
+            <input
+              value={activity}
+              onChange={(e) => setActivity(e.target.value)}
+              placeholder="Next.js Conf 2025"
+              className={inputCls}
+            />
+          </div>
+
+          <div>
+            <label className={labelCls}>
+              <Calendar size={9} /> Last interacted
+            </label>
+            <input
+              type="date"
+              value={lastInteracted}
+              onChange={(e) => setLastInteracted(e.target.value)}
+              className={`${inputCls} [color-scheme:dark]`}
+            />
+          </div>
+
+          <div>
+            <label className={labelCls}>
               <FileText size={9} /> Notes
             </label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="How you know them…"
+              placeholder="How you know them, what to follow up on…"
               rows={3}
               className={`${inputCls} h-auto py-2 resize-none`}
             />
           </div>
 
-          {/* Dates */}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-white/40 text-[10px] uppercase tracking-wider font-medium mb-1.5 flex items-center gap-1">
-                <Calendar size={9} /> Met at
-              </label>
-              <input
-                type="date"
-                value={metAt}
-                onChange={(e) => setMetAt(e.target.value)}
-                className={`${inputCls} [color-scheme:dark]`}
-              />
-            </div>
-            <div>
-              <label className="text-white/40 text-[10px] uppercase tracking-wider font-medium mb-1.5 flex items-center gap-1">
-                <Clock size={9} /> Last contact
-              </label>
-              <input
-                type="date"
-                value={lastContacted}
-                onChange={(e) => setLastContacted(e.target.value)}
-                className={`${inputCls} [color-scheme:dark]`}
-              />
-            </div>
-          </div>
-
-          {/* Color */}
           <div>
-            <label className="text-white/40 text-[10px] uppercase tracking-wider font-medium block mb-2">
-              Color
-            </label>
+            <label className={labelCls}>Color</label>
             <div className="flex gap-2">
               {COLORS.map((c) => (
                 <button
@@ -263,6 +335,77 @@ export function NodePanel({ addNode, updateNode }: Props) {
               ))}
             </div>
           </div>
+
+          {isEditing && (
+            <div className="border-t border-white/10 pt-4 mt-2">
+              <label className={labelCls}>Connections</label>
+
+              {connections.length > 0 ? (
+                <ul className="flex flex-col gap-1.5 mb-3">
+                  {connections.map(({ edge, other }) => (
+                    <li
+                      key={edge.id}
+                      className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="text-white text-sm truncate">{other!.name}</div>
+                        {edge.label && (
+                          <div className="text-white/40 text-[11px] truncate">{edge.label}</div>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => deleteEdge(edge.id)}
+                        className="text-white/30 hover:text-red-400 transition-colors"
+                        title="Remove connection"
+                      >
+                        <X size={13} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-white/30 text-xs mb-3">No connections yet.</p>
+              )}
+
+              {otherNodes.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <select
+                    value={connectTargetId}
+                    onChange={(e) => setConnectTargetId(e.target.value)}
+                    className={`${inputCls} [color-scheme:dark]`}
+                  >
+                    <option value="" className="bg-[#0c0c18]">
+                      Connect to…
+                    </option>
+                    {otherNodes.map((n) => (
+                      <option key={n.id} value={n.id} className="bg-[#0c0c18]">
+                        {n.name}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    value={connectLabel}
+                    onChange={(e) => setConnectLabel(e.target.value)}
+                    placeholder="Label (optional) — e.g. met at React Miami"
+                    className={inputCls}
+                  />
+                  <button
+                    onClick={handleConnect}
+                    disabled={!connectTargetId}
+                    className="
+                      h-9 rounded-lg bg-indigo-500/80 hover:bg-indigo-500
+                      text-white text-sm font-medium
+                      disabled:opacity-30 disabled:cursor-not-allowed
+                      transition-colors
+                      flex items-center justify-center gap-1.5
+                    "
+                  >
+                    <Plus size={14} /> Add connection
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="px-5 py-4 border-t border-white/10 flex gap-2 shrink-0">
@@ -273,6 +416,16 @@ export function NodePanel({ addNode, updateNode }: Props) {
           >
             {saving ? "Saving…" : isEditing ? "Save changes" : "Add to graph"}
           </button>
+          {isEditing && (
+            <button
+              onClick={handleDelete}
+              disabled={saving}
+              className="h-9 px-3 rounded-lg border border-red-500/30 text-red-400/80 hover:text-red-400 hover:border-red-500/60 text-sm transition-colors disabled:opacity-30"
+              title="Delete node"
+            >
+              <Trash2 size={14} />
+            </button>
+          )}
           <button
             onClick={close}
             className="h-9 px-3 rounded-lg border border-white/15 text-white/50 hover:text-white/80 text-sm transition-colors"

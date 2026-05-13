@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
+import { Manrope } from "next/font/google";
 import {
   ClerkProvider,
   Show,
@@ -9,8 +9,8 @@ import {
 } from "@clerk/nextjs";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const manrope = Manrope({
+  variable: "--font-sans",
   subsets: ["latin"],
 });
 
@@ -26,7 +26,7 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
-      <html lang="en" className={`${geistSans.variable} h-full antialiased`}>
+      <html lang="en" className={`${manrope.variable} h-full antialiased`}>
         <body className="h-full flex flex-col bg-[#080810] text-white">
           <header className="flex items-center justify-between px-6 py-3 border-b border-white/5 shrink-0">
             <span className="text-white font-semibold tracking-tight text-sm">
