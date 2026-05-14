@@ -6,9 +6,6 @@ import { useSupabaseClient } from "./supabase";
 import { useGraphStore } from "./store";
 import { PersonNode, RelationshipEdge } from "./types";
 
-const LS_NODES = "pplgraph_nodes";
-const LS_EDGES = "pplgraph_edges";
-
 // DB stores color as integer; UI uses hex strings
 function colorToInt(hex: string | undefined): number | undefined {
   if (!hex) return undefined;
@@ -36,8 +33,6 @@ export function useGraphData() {
 
   const { userId, isLoaded } = useAuth();
   const {
-    nodes,
-    edges,
     setNodes,
     setEdges,
     setLoading,
@@ -51,37 +46,23 @@ export function useGraphData() {
   // Load data once auth state is known
   useEffect(() => {
     if (!isLoaded) return;
-
-    if (userId) {
-      setLoading(true);
-      Promise.all([
-        supabaseRef.current.from("nodes").select("*").eq("user_id", userId),
-        supabaseRef.current.from("edges").select("*").eq("user_id", userId),
-      ]).then(([{ data: n, error: ne }, { data: e, error: ee }]) => {
-        if (ne) console.error("nodes fetch:", ne.message, ne.code);
-        if (ee) console.error("edges fetch:", ee.message, ee.code);
-        if (n) setNodes(n.map(nodeFromDb));
-        if (e) setEdges(e as RelationshipEdge[]);
-        setLoading(false);
-      });
-    } else {
-      try {
-        const n = localStorage.getItem(LS_NODES);
-        const e = localStorage.getItem(LS_EDGES);
-        if (n) setNodes(JSON.parse(n));
-        if (e) setEdges(JSON.parse(e));
-      } catch {}
+    if (!userId) {
+      setNodes([]);
+      setEdges([]);
+      return;
     }
+    setLoading(true);
+    Promise.all([
+      supabaseRef.current.from("nodes").select("*").eq("user_id", userId),
+      supabaseRef.current.from("edges").select("*").eq("user_id", userId),
+    ]).then(([{ data: n, error: ne }, { data: e, error: ee }]) => {
+      if (ne) console.error("nodes fetch:", ne.message, ne.code);
+      if (ee) console.error("edges fetch:", ee.message, ee.code);
+      if (n) setNodes(n.map(nodeFromDb));
+      if (e) setEdges(e as RelationshipEdge[]);
+      setLoading(false);
+    });
   }, [isLoaded, userId, setNodes, setEdges, setLoading]);
-
-  // Persist to localStorage when logged out
-  useEffect(() => {
-    if (!isLoaded || userId) return;
-    try {
-      localStorage.setItem(LS_NODES, JSON.stringify(nodes));
-      localStorage.setItem(LS_EDGES, JSON.stringify(edges));
-    } catch {}
-  }, [nodes, edges, isLoaded, userId]);
 
   // Debounced position save
   const positionTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
