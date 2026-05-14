@@ -11,6 +11,10 @@ export interface PersonNode {
   role?: string;
   twitter_url?: string;
   last_interacted?: string;
+  type?: string;
+  tags?: string[];
+  met_at?: string;
+  last_contacted?: string;
   pos_x: number;
   pos_y: number;
   color?: string;

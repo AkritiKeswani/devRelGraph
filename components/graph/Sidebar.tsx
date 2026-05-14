@@ -93,7 +93,7 @@ export function Sidebar() {
           )}
 
           {/* Tags */}
-          {node.tags.length > 0 && (
+          {node.tags && node.tags.length > 0 && (
             <div>
               <div className="flex items-center gap-1.5 mb-2">
                 <Tag size={11} className="text-white/30" />
